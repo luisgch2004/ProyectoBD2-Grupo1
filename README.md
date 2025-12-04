@@ -261,10 +261,11 @@ CREATE OR REPLACE PACKAGE PKG_PACIENTES AS
     PROCEDURE sp_eliminar_paciente(p_id_paciente IN NUMBER, p_id_usuario IN NUMBER, p_res OUT NUMBER, p_msg OUT VARCHAR2);
     PROCEDURE sp_listar_inactivos(p_cursor OUT SYS_REFCURSOR);
     PROCEDURE sp_reactivar_paciente(p_id_paciente IN NUMBER, p_id_usuario IN NUMBER, p_res OUT NUMBER, p_msg OUT VARCHAR2);
+    PROCEDURE sp_actualizar_historial(p_id_historial IN NUMBER,p_alergias IN CLOB,p_condiciones IN CLOB,p_medicamentos IN CLOB,p_observaciones IN CLOB,p_res OUT NUMBER,p_msg OUT VARCHAR2);
 END PKG_PACIENTES;
 /
 
--- CUERPO
+-- 2. ACTUALIZAR PAQUETE PACIENTES (Body)
 CREATE OR REPLACE PACKAGE BODY PKG_PACIENTES AS
     -- Procedimiento REGISTRAR mejorado
      PROCEDURE sp_registrar_paciente(p_dni IN VARCHAR2, p_nombre IN VARCHAR2, p_apellido IN VARCHAR2, p_fecha_nac IN DATE, p_genero IN VARCHAR2, p_tel IN VARCHAR2, p_dir IN VARCHAR2, p_email IN VARCHAR2, p_id_usu IN NUMBER, p_res OUT NUMBER, p_msg OUT VARCHAR2) IS
@@ -324,11 +325,11 @@ CREATE OR REPLACE PACKAGE BODY PKG_PACIENTES AS
         p_res := -1;
         p_msg := SQLERRM;
     END sp_eliminar_paciente;
-    
+
     PROCEDURE sp_listar_inactivos(p_cursor OUT SYS_REFCURSOR) IS
     BEGIN
         OPEN p_cursor FOR SELECT * FROM paciente WHERE estado = 'INACTIVO' ORDER BY apellido;
-    END sp_listar_inactivos;
+    END;
 
     PROCEDURE sp_reactivar_paciente(p_id_paciente IN NUMBER, p_id_usuario IN NUMBER, p_res OUT NUMBER, p_msg OUT VARCHAR2) IS
     BEGIN
@@ -344,7 +345,36 @@ CREATE OR REPLACE PACKAGE BODY PKG_PACIENTES AS
         ROLLBACK;
         p_res := -1;
         p_msg := SQLERRM;
-    END sp_reactivar_paciente;
+    END;
+    
+    PROCEDURE sp_actualizar_historial(
+        p_id_historial IN NUMBER,
+        p_alergias IN CLOB,
+        p_condiciones IN CLOB,
+        p_medicamentos IN CLOB,
+        p_observaciones IN CLOB,
+        p_res OUT NUMBER,
+        p_msg OUT VARCHAR2
+    ) IS
+    BEGIN
+        UPDATE historial_clinico 
+        SET alergias = p_alergias,
+            condiciones_cronicas = p_condiciones,
+            medicamentos_actuales = p_medicamentos,
+            observaciones_generales = p_observaciones
+        WHERE id_historial = p_id_historial;
+        
+        -- Nota: El trigger 'trg_versionar_historial_clinico' se disparará automáticamente 
+        -- para guardar la auditoría de los datos anteriores.
+        
+        COMMIT;
+        p_res := 1;
+        p_msg := 'Historial clínico actualizado correctamente.';
+    EXCEPTION WHEN OTHERS THEN
+        ROLLBACK;
+        p_res := -1;
+        p_msg := 'Error al actualizar: ' || SQLERRM;
+    END sp_actualizar_historial;
     
 END PKG_PACIENTES;
 /

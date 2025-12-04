@@ -49,6 +49,16 @@ public class PanelPacientes extends JPanel {
         Estilos.aplicarEstiloBoton(btnAtender);
         btnAtender.setBackground(new Color(0, 153, 76)); // Verde
 
+        JButton btnEliminar = new JButton("Eliminar");
+        Estilos.aplicarEstiloBoton(btnEliminar);
+        btnEliminar.setBackground(new Color(220, 53, 69)); // Rojo
+
+        JButton btnPapelera = new JButton("Ver Inactivos");
+        Estilos.aplicarEstiloBoton(btnPapelera);
+        btnPapelera.setBackground(Color.GRAY); // Gris para diferenciar
+        
+        
+
         toolbar.add(new JLabel("Buscar (DNI/Nombre):"));
         toolbar.add(txtBuscar);
         toolbar.add(btnBuscar);
@@ -56,6 +66,8 @@ public class PanelPacientes extends JPanel {
         toolbar.add(btnNuevo);
         toolbar.add(btnEditar);
         toolbar.add(btnAtender);
+        toolbar.add(btnEliminar);
+        toolbar.add(btnPapelera);
 
         add(toolbar, BorderLayout.NORTH);
 
@@ -74,8 +86,9 @@ public class PanelPacientes extends JPanel {
         btnNuevo.addActionListener(e -> mostrarFormulario(null));
         btnEditar.addActionListener(e -> editarPacienteSeleccionado());
         btnAtender.addActionListener(e -> atenderPacienteSeleccionado());
-        
         btnBuscar.addActionListener(e -> filtrarDatos(txtBuscar.getText()));
+        btnEliminar.addActionListener(e -> eliminarPacienteSeleccionado());
+        btnPapelera.addActionListener(e -> mostrarVentanaInactivos());
         
         // Búsqueda en tiempo real
         txtBuscar.addKeyListener(new java.awt.event.KeyAdapter() {
@@ -84,6 +97,79 @@ public class PanelPacientes extends JPanel {
             }
         });
     }
+
+    private void mostrarVentanaInactivos() {
+        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Pacientes Inactivos", true);
+        dialog.setSize(600, 400);
+        dialog.setLayout(new BorderLayout());
+        
+        // Tabla interna
+        String[] cols = {"ID", "DNI", "Nombre", "Apellido"};
+        DefaultTableModel modelInactivos = new DefaultTableModel(cols, 0) {
+            @Override public boolean isCellEditable(int row, int col) { return false; }
+        };
+        JTable tableInactivos = new JTable(modelInactivos);
+        
+        // Cargar datos
+        try {
+            List<Paciente> lista = pacienteDAO.listarInactivos();
+            for(Paciente p : lista) {
+                modelInactivos.addRow(new Object[]{p.getIdPaciente(), p.getDni(), p.getNombre(), p.getApellido()});
+            }
+        } catch(Exception ex) { ex.printStackTrace(); }
+        
+        JButton btnReactivar = new JButton("Reingresar Paciente");
+        Estilos.aplicarEstiloBoton(btnReactivar);
+        btnReactivar.setBackground(new Color(0, 153, 76));
+        
+        btnReactivar.addActionListener(e -> {
+            int row = tableInactivos.getSelectedRow();
+            if(row == -1) {
+                JOptionPane.showMessageDialog(dialog, "Seleccione un paciente.");
+                return;
+            }
+            int id = (int) modelInactivos.getValueAt(row, 0);
+            try {
+                pacienteDAO.reactivarPaciente(id, UserSession.getInstance().getUsuario().getIdUsuario());
+                JOptionPane.showMessageDialog(dialog, "Paciente reactivado.");
+                dialog.dispose();
+                cargarDatos(); // Refrescar la tabla principal
+            } catch(Exception ex) {
+                JOptionPane.showMessageDialog(dialog, "Error: " + ex.getMessage());
+            }
+        });
+        
+        dialog.add(new JScrollPane(tableInactivos), BorderLayout.CENTER);
+        JPanel pnlBtn = new JPanel(); pnlBtn.add(btnReactivar);
+        dialog.add(pnlBtn, BorderLayout.SOUTH);
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
+    }
+
+    private void eliminarPacienteSeleccionado() {
+    int row = tabla.getSelectedRow();
+    if (row == -1) {
+        JOptionPane.showMessageDialog(this, "Seleccione un paciente para eliminar.");
+        return;
+    }
+    
+    int idPaciente = (int) modelo.getValueAt(row, 0);
+    String nombre = (String) modelo.getValueAt(row, 2);
+    
+    int confirm = JOptionPane.showConfirmDialog(this, 
+        "¿Está seguro de eliminar al paciente " + nombre + "?\nEsta acción no se puede deshacer (se marcará como inactivo).", 
+        "Confirmar Eliminación", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+        
+    if (confirm == JOptionPane.YES_OPTION) {
+        try {
+            pacienteDAO.eliminarPaciente(idPaciente, UserSession.getInstance().getUsuario().getIdUsuario());
+            cargarDatos(); // Refrescar tabla
+            JOptionPane.showMessageDialog(this, "Paciente eliminado.");
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());
+        }
+    }
+}
 
     private void editarPacienteSeleccionado() {
         int row = tabla.getSelectedRow();

@@ -150,4 +150,53 @@ public class PacienteDAO {
             ps.executeUpdate();
         }
     }
+
+    public void eliminarPaciente(int idPaciente, int idUsuario) throws SQLException {
+        CallableStatement stmt = null;
+        try {
+            stmt = connection.prepareCall("{call fisiclinica_admin.PKG_PACIENTES.sp_eliminar_paciente(?,?,?,?)}");
+            stmt.setInt(1, idPaciente);
+            stmt.setInt(2, idUsuario);
+            stmt.registerOutParameter(3, Types.INTEGER);
+            stmt.registerOutParameter(4, Types.VARCHAR);
+            stmt.execute();
+            
+            if (stmt.getInt(3) != 1) throw new SQLException(stmt.getString(4));
+        } finally { if(stmt!=null) stmt.close(); }
+    }
+    public List<Paciente> listarInactivos() throws SQLException {
+        CallableStatement stmt = null;
+        ResultSet rs = null;
+        List<Paciente> pacientes = new ArrayList<>();
+        try {
+            stmt = connection.prepareCall("{call fisiclinica_admin.PKG_PACIENTES.sp_listar_inactivos(?)}");
+            stmt.registerOutParameter(1, OracleTypes.CURSOR);
+            stmt.execute();
+            rs = (ResultSet) stmt.getObject(1);
+            while (rs.next()) {
+                Paciente p = new Paciente();
+                p.setIdPaciente(rs.getInt("id_paciente"));
+                p.setDni(rs.getString("dni"));
+                p.setNombre(rs.getString("nombre"));
+                p.setApellido(rs.getString("apellido"));
+                p.setTelefono(rs.getString("telefono"));
+                p.setEstado(rs.getString("estado"));
+                pacientes.add(p);
+            }
+        } finally { if(rs!=null) rs.close(); if(stmt!=null) stmt.close(); }
+        return pacientes;
+    }
+
+    public void reactivarPaciente(int idPaciente, int idUsuario) throws SQLException {
+        CallableStatement stmt = null;
+        try {
+            stmt = connection.prepareCall("{call fisiclinica_admin.PKG_PACIENTES.sp_reactivar_paciente(?,?,?,?)}");
+            stmt.setInt(1, idPaciente);
+            stmt.setInt(2, idUsuario);
+            stmt.registerOutParameter(3, Types.INTEGER);
+            stmt.registerOutParameter(4, Types.VARCHAR);
+            stmt.execute();
+            if (stmt.getInt(3) != 1) throw new SQLException(stmt.getString(4));
+        } finally { if(stmt!=null) stmt.close(); }
+    }
 }

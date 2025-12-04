@@ -147,4 +147,54 @@ public class MedicamentoDAO {
             ps.executeUpdate();
         }
     }
+
+    public void eliminarMedicamento(int idMedicamento, int idUsuario) throws SQLException {
+        CallableStatement stmt = null;
+        try {
+            stmt = connection.prepareCall("{call fisiclinica_admin.PKG_MEDICAMENTOS.sp_eliminar_medicamento(?,?,?,?)}");
+            stmt.setInt(1, idMedicamento);
+            stmt.setInt(2, idUsuario);
+            stmt.registerOutParameter(3, Types.INTEGER);
+            stmt.registerOutParameter(4, Types.VARCHAR);
+            stmt.execute();
+            
+            if (stmt.getInt(3) != 1) throw new SQLException(stmt.getString(4));
+        } finally { if(stmt!=null) stmt.close(); }
+    }
+    public List<Medicamento> listarInactivos() throws SQLException {
+        CallableStatement stmt = null;
+        ResultSet rs = null;
+        List<Medicamento> lista = new ArrayList<>();
+        try {
+            stmt = connection.prepareCall("{call fisiclinica_admin.PKG_MEDICAMENTOS.sp_listar_inactivos(?)}");
+            stmt.registerOutParameter(1, OracleTypes.CURSOR);
+            stmt.execute();
+            rs = (ResultSet) stmt.getObject(1);
+            while (rs.next()) {
+                Medicamento m = new Medicamento();
+                m.setIdMedicamento(rs.getInt("id_medicamento"));
+                m.setNombre(rs.getString("nombre"));
+                m.setPrincipioActivo(rs.getString("principio_activo"));
+                m.setStockActual(rs.getInt("stock_actual"));
+                m.setStockMinimo(rs.getInt("stock_minimo"));
+                m.setPrecioUnitario(rs.getDouble("precio_unitario"));
+                m.setEstado(rs.getString("estado"));
+                lista.add(m);
+            }
+        } finally { if(rs!=null) rs.close(); if(stmt!=null) stmt.close(); }
+        return lista;
+    }
+
+    public void reactivarMedicamento(int idMedicamento, int idUsuario) throws SQLException {
+        CallableStatement stmt = null;
+        try {
+            stmt = connection.prepareCall("{call fisiclinica_admin.PKG_MEDICAMENTOS.sp_reactivar_medicamento(?,?,?,?)}");
+            stmt.setInt(1, idMedicamento);
+            stmt.setInt(2, idUsuario);
+            stmt.registerOutParameter(3, Types.INTEGER);
+            stmt.registerOutParameter(4, Types.VARCHAR);
+            stmt.execute();
+            if (stmt.getInt(3) != 1) throw new SQLException(stmt.getString(4));
+        } finally { if(stmt!=null) stmt.close(); }
+    }
 }

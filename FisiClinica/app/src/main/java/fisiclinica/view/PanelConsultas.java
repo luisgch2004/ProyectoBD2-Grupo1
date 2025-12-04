@@ -5,6 +5,7 @@ import fisiclinica.dao.PacienteDAO;
 import fisiclinica.model.ConsultaMedica;
 import fisiclinica.model.Paciente;
 import fisiclinica.util.Estilos; // Importar estilos
+import fisiclinica.util.UserSession;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
@@ -50,6 +51,10 @@ public class PanelConsultas extends JPanel {
         
         JButton btnEditar = new JButton("Editar Diagnóstico");
         Estilos.aplicarEstiloBoton(btnEditar);
+
+        JButton btnCancelar = new JButton("Cancelar Consulta");
+        Estilos.aplicarEstiloBoton(btnCancelar);
+        btnCancelar.setBackground(new Color(220, 53, 69));
         
         topPanel.add(lblDni);
         topPanel.add(txtDni);
@@ -58,6 +63,7 @@ public class PanelConsultas extends JPanel {
         topPanel.add(btnVerDetalle);
         topPanel.add(btnEditar);
         topPanel.add(btnAyuda);
+        topPanel.add(btnCancelar);
         
         add(topPanel, BorderLayout.NORTH);
 
@@ -88,9 +94,35 @@ public class PanelConsultas extends JPanel {
             "PARA AGREGAR UNA CONSULTA:\n\n1. Vaya a la pestaña 'Pacientes'.\n2. Busque al paciente en la lista.\n3. Haga clic en el botón 'ATENDER CONSULTA'.\n\nDesde allí podrá registrar la atención médica.", "Ayuda", JOptionPane.INFORMATION_MESSAGE));
             
         btnEditar.addActionListener(e -> editarConsulta());
+
+        btnCancelar.addActionListener(e -> cancelarConsultaSeleccionada());
         
         // REQ 3: Cargar todas las consultas al inicio
         cargarTodasLasConsultas();
+    }
+
+    private void cancelarConsultaSeleccionada() {
+        int row = tabla.getSelectedRow();
+        if (row == -1) {
+            JOptionPane.showMessageDialog(this, "Seleccione una consulta.");
+            return;
+        }
+        
+        int idCons = (int) modelo.getValueAt(row, 0);
+        
+        int confirm = JOptionPane.showConfirmDialog(this, 
+            "¿Cancelar esta consulta?", 
+            "Confirmar", JOptionPane.YES_NO_OPTION);
+            
+        if (confirm == JOptionPane.YES_OPTION) {
+            try {
+                consultaDAO.eliminarConsulta(idCons, UserSession.getInstance().getUsuario().getIdUsuario());
+                if (txtDni.getText().isEmpty()) cargarTodasLasConsultas(); else buscarConsultas();
+                JOptionPane.showMessageDialog(this, "Consulta cancelada.");
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());
+            }
+        }
     }
 
     private void cargarTodasLasConsultas() {

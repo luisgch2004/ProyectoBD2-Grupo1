@@ -136,7 +136,9 @@ public class PanelDonaciones extends JPanel {
                 d.setNombreDonante(txtDonante.getText());
                 d.setDniDonante(txtDni.getText());
                 d.setTipoDonacion((String) cmbTipo.getSelectedItem());
-                d.setFechaDonacion((java.sql.Date) dateRegistro.getDate());
+                java.util.Date fechaUtil = dateRegistro.getDate();
+                java.sql.Date fechaSql = new java.sql.Date(fechaUtil.getTime());
+                d.setFechaDonacion(fechaSql);
                 d.setMonto(Double.parseDouble(txtMonto.getText()));
                 d.setMoneda((String) cmbMoneda.getSelectedItem());
                 d.setDescripcion(txtDesc.getText());

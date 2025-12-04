@@ -56,9 +56,18 @@ public class PanelMedicamentos extends JPanel {
         Estilos.aplicarEstiloBoton(btnEditar);
         
         // Inicializamos el botón ANTES de usarlo o agregarlo
-        btnAlertas = new JButton("⚠ Ver Stock Bajo");
+        btnAlertas = new JButton("! Ver Stock Bajo");
         Estilos.aplicarEstiloBoton(btnAlertas);
         btnAlertas.setBackground(new Color(255, 140, 0)); // Color Naranja inicial
+
+        JButton btnEliminar = new JButton("Eliminar");
+        Estilos.aplicarEstiloBoton(btnEliminar);
+        btnEliminar.setBackground(new Color(220, 53, 69));
+
+        JButton btnPapelera = new JButton("Inactivos");
+        Estilos.aplicarEstiloBoton(btnPapelera);
+        btnPapelera.setBackground(Color.GRAY);
+        
 
         // Agregar componentes
         toolbar.add(lblBuscar);
@@ -68,6 +77,8 @@ public class PanelMedicamentos extends JPanel {
         toolbar.add(btnNuevo);
         toolbar.add(btnEditar);
         toolbar.add(btnAlertas);
+        toolbar.add(btnEliminar);
+        toolbar.add(btnPapelera);
         
         add(toolbar, BorderLayout.NORTH);
 
@@ -101,6 +112,8 @@ public class PanelMedicamentos extends JPanel {
         // 3. Nuevo y Editar
         btnNuevo.addActionListener(e -> nuevoMedicamento());
         btnEditar.addActionListener(e -> editarMedicamento());
+
+        btnEliminar.addActionListener(e -> eliminarMedicamentoSeleccionado());
         
         // 4. Búsqueda en tiempo real (solo si no estamos en modo alerta)
         txtBuscar.addKeyListener(new java.awt.event.KeyAdapter() {
@@ -110,6 +123,79 @@ public class PanelMedicamentos extends JPanel {
                 }
             }
         });
+
+        btnPapelera.addActionListener(e -> mostrarVentanaInactivos());
+    }
+
+    private void mostrarVentanaInactivos() {
+        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Medicamentos Inactivos/Descontinuados", true);
+        dialog.setSize(600, 400);
+        dialog.setLayout(new BorderLayout());
+        
+        String[] cols = {"ID", "Nombre", "Estado"};
+        DefaultTableModel modelInactivos = new DefaultTableModel(cols, 0) {
+            @Override public boolean isCellEditable(int row, int col) { return false; }
+        };
+        JTable tableInactivos = new JTable(modelInactivos);
+        
+        try {
+            List<Medicamento> lista = dao.listarInactivos();
+            for(Medicamento m : lista) {
+                modelInactivos.addRow(new Object[]{m.getIdMedicamento(), m.getNombre(), m.getEstado()});
+            }
+        } catch(Exception ex) { ex.printStackTrace(); }
+        
+        JButton btnReactivar = new JButton("Reactivar Medicamento");
+        Estilos.aplicarEstiloBoton(btnReactivar);
+        btnReactivar.setBackground(new Color(0, 153, 76));
+        
+        btnReactivar.addActionListener(e -> {
+            int row = tableInactivos.getSelectedRow();
+            if(row == -1) {
+                JOptionPane.showMessageDialog(dialog, "Seleccione un medicamento.");
+                return;
+            }
+            int id = (int) modelInactivos.getValueAt(row, 0);
+            try {
+                dao.reactivarMedicamento(id, UserSession.getInstance().getUsuario().getIdUsuario());
+                JOptionPane.showMessageDialog(dialog, "Medicamento reactivado.");
+                dialog.dispose();
+                buscar(""); // Refrescar tabla principal
+            } catch(Exception ex) {
+                JOptionPane.showMessageDialog(dialog, "Error: " + ex.getMessage());
+            }
+        });
+        
+        dialog.add(new JScrollPane(tableInactivos), BorderLayout.CENTER);
+        JPanel pnlBtn = new JPanel(); pnlBtn.add(btnReactivar);
+        dialog.add(pnlBtn, BorderLayout.SOUTH);
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
+    }
+
+    private void eliminarMedicamentoSeleccionado() {
+        int row = tabla.getSelectedRow();
+        if (row == -1) {
+            JOptionPane.showMessageDialog(this, "Seleccione un medicamento.");
+            return;
+        }
+        
+        int idMed = (int) modelo.getValueAt(row, 0);
+        String nombre = (String) modelo.getValueAt(row, 1);
+        
+        int confirm = JOptionPane.showConfirmDialog(this, 
+            "¿Eliminar el medicamento " + nombre + "?", 
+            "Confirmar", JOptionPane.YES_NO_OPTION);
+            
+        if (confirm == JOptionPane.YES_OPTION) {
+            try {
+                dao.eliminarMedicamento(idMed, UserSession.getInstance().getUsuario().getIdUsuario());
+                buscar(""); // Refrescar
+                JOptionPane.showMessageDialog(this, "Medicamento eliminado.");
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());
+            }
+        }
     }
 
     /**

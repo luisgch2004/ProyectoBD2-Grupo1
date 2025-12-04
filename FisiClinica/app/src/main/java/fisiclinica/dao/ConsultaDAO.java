@@ -129,4 +129,18 @@ public class ConsultaDAO {
         c.setNombreMedico(rs.getString("nombre_medico"));
         return c;
     }
+
+    public void eliminarConsulta(int idConsulta, int idUsuario) throws SQLException {
+    CallableStatement stmt = null;
+    try {
+        stmt = connection.prepareCall("{call fisiclinica_admin.PKG_CONSULTAS.sp_eliminar_consulta(?,?,?,?)}");
+        stmt.setInt(1, idConsulta);
+        stmt.setInt(2, idUsuario);
+        stmt.registerOutParameter(3, Types.INTEGER);
+        stmt.registerOutParameter(4, Types.VARCHAR);
+        stmt.execute();
+        
+        if (stmt.getInt(3) != 1) throw new SQLException(stmt.getString(4));
+    } finally { if(stmt!=null) stmt.close(); }
+}
 }

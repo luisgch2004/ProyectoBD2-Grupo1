@@ -17,7 +17,7 @@ public class MainFrame extends JFrame {
         }
 
         setTitle("FISICLINICA - Sistema de Gestión [Usuario: " + usuario.getNombreCompleto() + " - " + usuario.getNombreRol() + "]");
-        setSize(1024, 768);
+        setSize(1175, 768);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         

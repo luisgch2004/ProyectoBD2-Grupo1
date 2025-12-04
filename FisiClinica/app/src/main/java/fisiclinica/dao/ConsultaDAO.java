@@ -2,7 +2,6 @@ package fisiclinica.dao;
 
 import fisiclinica.model.ConsultaMedica;
 import fisiclinica.util.DatabaseConnection;
-import oracle.jdbc.OracleTypes;
 
 import java.sql.*;
 import java.util.ArrayList;
@@ -68,14 +67,33 @@ public class ConsultaDAO {
 
     public List<ConsultaMedica> listarTodas() throws SQLException {
         List<ConsultaMedica> lista = new ArrayList<>();
-        String sql = "SELECT * FROM (SELECT c.*, u.nombre || ' ' || u.apellido as nombre_medico " +
-                     "FROM consulta_medica c JOIN usuario u ON c.id_medico = u.id_usuario " +
-                     "ORDER BY c.fecha_consulta DESC) WHERE ROWNUM <= 50";
+        // SQL ACTUALIZADO: Hacemos JOIN con PACIENTE para traer DNI y Nombre
+        String sql = "SELECT c.id_consulta, c.fecha_consulta, c.motivo_consulta, c.sintomas, " +
+                     "c.diagnostico, c.tratamiento_prescrito, c.observaciones, c.estado, " +
+                     "p.dni AS dni_paciente, " +
+                     "p.nombre || ' ' || p.apellido AS nombre_paciente, " +
+                     "u.nombre || ' ' || u.apellido AS nombre_medico " +
+                     "FROM consulta_medica c " +
+                     "JOIN paciente p ON c.id_paciente = p.id_paciente " +
+                     "JOIN usuario u ON c.id_medico = u.id_usuario " +
+                     "ORDER BY c.fecha_consulta DESC"; // Quitamos el límite ROWNUM para ver todo por ahora
         
         try (PreparedStatement ps = connection.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
-                ConsultaMedica c = mapResultSet(rs);
+                ConsultaMedica c = new ConsultaMedica();
+                c.setIdConsulta(rs.getInt("id_consulta"));
+                c.setFechaConsulta(rs.getTimestamp("fecha_consulta"));
+                c.setMotivoConsulta(rs.getString("motivo_consulta"));
+                c.setSintomas(rs.getString("sintomas"));
+                c.setDiagnostico(rs.getString("diagnostico"));
+                c.setTratamientoPrescrito(rs.getString("tratamiento_prescrito"));
+                c.setObservaciones(rs.getString("observaciones"));
+                c.setEstado(rs.getString("estado"));
+                // Seteamos los datos nuevos
+                c.setDniPaciente(rs.getString("dni_paciente"));
+                c.setNombrePaciente(rs.getString("nombre_paciente"));
+                c.setNombreMedico(rs.getString("nombre_medico"));
                 lista.add(c);
             }
         }
@@ -88,13 +106,36 @@ public class ConsultaDAO {
         List<ConsultaMedica> consultas = new ArrayList<>();
         
         try {
-            stmt = connection.prepareCall("{call fisiclinica_admin.PKG_CONSULTAS.sp_listar_consultas_paciente(?,?)}");
-            stmt.setInt(1, idPaciente);
-            stmt.registerOutParameter(2, OracleTypes.CURSOR);
-            stmt.execute();
-            rs = (ResultSet) stmt.getObject(2);
+
+            String sql = "SELECT c.id_consulta, c.fecha_consulta, c.motivo_consulta, c.sintomas, " +
+                         "c.diagnostico, c.tratamiento_prescrito, c.observaciones, c.estado, " +
+                         "p.dni AS dni_paciente, " +
+                         "p.nombre || ' ' || p.apellido AS nombre_paciente, " +
+                         "u.nombre || ' ' || u.apellido AS nombre_medico " +
+                         "FROM consulta_medica c " +
+                         "JOIN paciente p ON c.id_paciente = p.id_paciente " +
+                         "JOIN usuario u ON c.id_medico = u.id_usuario " +
+                         "WHERE c.id_paciente = ? " +
+                         "ORDER BY c.fecha_consulta DESC";
+
+            PreparedStatement ps = connection.prepareStatement(sql);
+            ps.setInt(1, idPaciente);
+            rs = ps.executeQuery();
+
             while (rs.next()) {
-                consultas.add(mapResultSet(rs));
+                ConsultaMedica c = new ConsultaMedica();
+                c.setIdConsulta(rs.getInt("id_consulta"));
+                c.setFechaConsulta(rs.getTimestamp("fecha_consulta"));
+                c.setMotivoConsulta(rs.getString("motivo_consulta"));
+                c.setSintomas(rs.getString("sintomas"));
+                c.setDiagnostico(rs.getString("diagnostico"));
+                c.setTratamientoPrescrito(rs.getString("tratamiento_prescrito"));
+                c.setObservaciones(rs.getString("observaciones"));
+                c.setEstado(rs.getString("estado"));
+                c.setDniPaciente(rs.getString("dni_paciente"));
+                c.setNombrePaciente(rs.getString("nombre_paciente"));
+                c.setNombreMedico(rs.getString("nombre_medico"));
+                consultas.add(c);
             }
         } finally {
             if (rs != null) rs.close();
@@ -131,16 +172,16 @@ public class ConsultaDAO {
     }
 
     public void eliminarConsulta(int idConsulta, int idUsuario) throws SQLException {
-    CallableStatement stmt = null;
-    try {
-        stmt = connection.prepareCall("{call fisiclinica_admin.PKG_CONSULTAS.sp_eliminar_consulta(?,?,?,?)}");
-        stmt.setInt(1, idConsulta);
-        stmt.setInt(2, idUsuario);
-        stmt.registerOutParameter(3, Types.INTEGER);
-        stmt.registerOutParameter(4, Types.VARCHAR);
-        stmt.execute();
-        
-        if (stmt.getInt(3) != 1) throw new SQLException(stmt.getString(4));
-    } finally { if(stmt!=null) stmt.close(); }
-}
+        CallableStatement stmt = null;
+        try {
+            stmt = connection.prepareCall("{call fisiclinica_admin.PKG_CONSULTAS.sp_eliminar_consulta(?,?,?,?)}");
+            stmt.setInt(1, idConsulta);
+            stmt.setInt(2, idUsuario);
+            stmt.registerOutParameter(3, Types.INTEGER);
+            stmt.registerOutParameter(4, Types.VARCHAR);
+            stmt.execute();
+            
+            if (stmt.getInt(3) != 1) throw new SQLException(stmt.getString(4));
+        } finally { if(stmt!=null) stmt.close(); }
+    }
 }

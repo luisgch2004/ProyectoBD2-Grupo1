@@ -1,27 +1,38 @@
 package fisiclinica.view;
 
-import fisiclinica.model.Usuario;
+import fisiclinica.util.Estilos;
 import fisiclinica.util.UserSession;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.util.ArrayList;
+import java.util.List;
 
 public class MainFrame extends JFrame {
     private CardLayout cardLayout;
     private JPanel mainPanel;
+    
+    // Lista para controlar los botones del menú
+    private List<JButton> menuButtons;
+    private JButton currentActiveButton;
 
     public MainFrame() {
-        Usuario usuario = UserSession.getInstance().getUsuario();
-        if (usuario == null) {
+        // Validación de sesión
+        if (UserSession.getInstance().getUsuario() == null) {
             System.exit(0);
         }
 
-        setTitle("FISICLINICA - Sistema de Gestión [Usuario: " + usuario.getNombreCompleto() + " - " + usuario.getNombreRol() + "]");
+        setTitle("FISICLINICA - Sistema de Gestión [Usuario: " + 
+                 UserSession.getInstance().getUsuario().getNombreCompleto() + " - " + 
+                 UserSession.getInstance().getUsuario().getNombreRol() + "]");
         setSize(1175, 768);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         
-        initUI(usuario.getNombreRol());
+        menuButtons = new ArrayList<>();
+        initUI(UserSession.getInstance().getUsuario().getNombreRol());
     }
 
     private void initUI(String rol) {
@@ -29,16 +40,16 @@ public class MainFrame extends JFrame {
 
         // --- Menu Lateral ---
         JPanel sideMenu = new JPanel();
-        // Usamos BoxLayout o GridLayout flexible para que no queden huecos feos
-        sideMenu.setLayout(new GridLayout(10, 1, 5, 5)); 
+        // Usamos BoxLayout vertical para tener control total
+        sideMenu.setLayout(new BoxLayout(sideMenu, BoxLayout.Y_AXIS));
         sideMenu.setBackground(new Color(44, 62, 80));
-        sideMenu.setPreferredSize(new Dimension(200, getHeight()));
+        sideMenu.setPreferredSize(new Dimension(220, getHeight()));
+        sideMenu.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10)); // Margen interno
 
-        // --- Panel Central (CardLayout) ---
+        // --- Panel Central ---
         cardLayout = new CardLayout();
         mainPanel = new JPanel(cardLayout);
         
-        // Panel de bienvenida (fondo blanco por defecto)
         JPanel welcomePanel = new JPanel(new GridBagLayout());
         welcomePanel.setBackground(Color.WHITE);
         JLabel lblWelcome = new JLabel("Bienvenido al Sistema FISICLINICA");
@@ -47,108 +58,138 @@ public class MainFrame extends JFrame {
         welcomePanel.add(lblWelcome);
         mainPanel.add(welcomePanel, "HOME");
 
-        // =========================================================
-        // LÓGICA DE PERMISOS POR ROL
-        // =========================================================
-
-        boolean mostrarPacientes = false;
-        boolean mostrarConsultas = false;
-        boolean mostrarMedicamentos = false;
-        boolean mostrarDonaciones = false;
+        // --- LÓGICA DE ROLES ---
+        boolean showPac = false, showCons = false, showMed = false, showDon = false, showHistorial = false;
 
         switch (rol) {
             case "ADMINISTRADOR":
-                mostrarPacientes = true;
-                mostrarConsultas = true;
-                mostrarMedicamentos = true;
-                mostrarDonaciones = true;
+                showPac = true; showCons = true; showMed = true; showDon = true; showHistorial = true;
                 break;
             case "MEDICO":
-                // 2. Medico: Pacientes, Consultas y Medicamentos
-                mostrarPacientes = true;
-                mostrarConsultas = true;
-                mostrarMedicamentos = true;
+                showPac = true; showCons = true; showMed = true; showHistorial = true;
                 break;
             case "CAJA":
-                // 1. Caja: Solo Pacientes y Consultas
-                mostrarPacientes = true;
-                mostrarConsultas = true;
+                showPac = true; showCons = true; showHistorial = true;
                 break;
             case "FARMACIA":
-            case "LOGISTICA":
-                // 3. Farmaceutica: Solo Medicamentos
-                mostrarMedicamentos = true;
+                showMed = true; showHistorial = true;
                 break;
+
             case "FINANZAS":
-                // 4. Finanzas: Solo Donaciones
-                mostrarDonaciones = true;
-                break;
-            case "ENFERMERO":
-                mostrarPacientes = true;
+                showDon = true;
                 break;
         }
 
-        // =========================================================
-        // AGREGAR BOTONES Y PANELES SEGÚN FLAGS
-        // =========================================================
-
-        if (mostrarPacientes) {
-            agregarBotonMenu(sideMenu, "Pacientes", "PACIENTES");
-            mainPanel.add(new PanelPacientes(), "PACIENTES");
+        // --- AGREGAR BOTONES ---
+        // Usamos un método especial 'crearBotonMenu' para controlar el color verde/azul
+        
+        if (showPac) {
+            sideMenu.add(crearBotonMenu("Pacientes", "PACIENTES", new PanelPacientes()));
+            sideMenu.add(Box.createVerticalStrut(10));
+        }if (showHistorial) {
+            sideMenu.add(crearBotonMenu("Historial Clínico", "HISTORIAL", new PanelHistorialClinico()));
+            sideMenu.add(Box.createVerticalStrut(10));
+        }
+        if (showCons) {
+             sideMenu.add(crearBotonMenu("Consultas", "CONSULTAS", new PanelConsultas()));
+             sideMenu.add(Box.createVerticalStrut(10));
+        }
+        if (showMed) {
+            sideMenu.add(crearBotonMenu("Medicamentos", "FARMACIA", new PanelMedicamentos()));
+            sideMenu.add(Box.createVerticalStrut(10));
+        }
+        if (showDon) {
+            sideMenu.add(crearBotonMenu("Donaciones", "DONACIONES", new PanelDonaciones()));
+            sideMenu.add(Box.createVerticalStrut(10));
         }
 
-        if (mostrarConsultas) {
-            agregarBotonMenu(sideMenu, "Consultas", "CONSULTAS");
-            mainPanel.add(new PanelConsultas(), "CONSULTAS");
-        }
+        // Espaciador para empujar Salir al fondo
+        sideMenu.add(Box.createVerticalGlue());
 
-        if (mostrarMedicamentos) {
-            agregarBotonMenu(sideMenu, "Medicamentos", "FARMACIA");
-            mainPanel.add(new PanelMedicamentos(), "FARMACIA");
-        }
-
-        if (mostrarDonaciones) {
-            agregarBotonMenu(sideMenu, "Donaciones", "DONACIONES");
-            mainPanel.add(new PanelDonaciones(), "DONACIONES");
-        }
-
-        // Botón Salir (Siempre visible)
+        // Botón Salir (Estilo diferente, rojo)
         JButton btnSalir = new JButton("Cerrar Sesión");
-        fisiclinica.util.Estilos.aplicarEstiloBoton(btnSalir);
-        // Opcional: Color rojo para diferenciar
-        // btnSalir.setBackground(new Color(192, 57, 43)); 
+        btnSalir.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+        btnSalir.setBackground(new Color(220, 53, 69)); 
+        btnSalir.setForeground(Color.BLACK);
+        btnSalir.setFocusPainted(false);
+        btnSalir.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        btnSalir.setCursor(new Cursor(Cursor.HAND_CURSOR));
         
         btnSalir.addActionListener(e -> {
-            fisiclinica.util.UserSession.getInstance().logout();
+            UserSession.getInstance().logout();
             new LoginFrame().setVisible(true);
             this.dispose();
         });
-        
-        // Espaciador para empujar Salir abajo
-        sideMenu.add(Box.createVerticalGlue());
         sideMenu.add(btnSalir);
 
         add(sideMenu, BorderLayout.WEST);
         add(mainPanel, BorderLayout.CENTER);
         
-        // Seleccionar la primera pestaña disponible automáticamente
-        if(mostrarPacientes) cardLayout.show(mainPanel, "PACIENTES");
-        else if(mostrarMedicamentos) cardLayout.show(mainPanel, "FARMACIA");
-        else if(mostrarDonaciones) cardLayout.show(mainPanel, "DONACIONES");
+        // Seleccionar la primera pestaña por defecto
+        if (!menuButtons.isEmpty()) {
+            menuButtons.get(0).doClick();
+        }
     }
 
-    private void agregarBotonMenu(JPanel panel, String texto, String cardName) {
+    private JButton crearBotonMenu(String texto, String cardName, JPanel panelInstancia) {
+        // Agregamos el panel al layout
+        mainPanel.add(panelInstancia, cardName);
+
         JButton btn = new JButton(texto);
-        estilizarBoton(btn);
-        btn.addActionListener(e -> cardLayout.show(mainPanel, cardName));
-        panel.add(btn);
-    }
-    
-    private void estilizarBoton(JButton btn) {
-        btn.setBackground(new Color(52, 152, 219));
-        btn.setForeground(Color.WHITE);
+        btn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 50));
         btn.setFocusPainted(false);
         btn.setBorderPainted(false);
-        btn.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        btn.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        
+        // Estilo Base (Azul)
+        btn.setBackground(Estilos.AZUL_OSCURO);
+        btn.setForeground(Color.WHITE);
+
+        // Añadir a la lista de control
+        menuButtons.add(btn);
+
+        // Lógica de Selección (Click)
+        btn.addActionListener(e -> {
+            cardLayout.show(mainPanel, cardName);
+            actualizarEstilosBotones(btn);
+        });
+
+        // Hover Effect personalizado que respeta si está activo o no
+        btn.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                if (btn != currentActiveButton) {
+                    btn.setBackground(Estilos.CELESTE);
+                    btn.setForeground(Color.BLACK);
+                }
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+                if (btn != currentActiveButton) {
+                    btn.setBackground(Estilos.AZUL_OSCURO);
+                    btn.setForeground(Color.WHITE);
+                }
+            }
+        });
+
+        return btn;
+    }
+
+    private void actualizarEstilosBotones(JButton botonSeleccionado) {
+        currentActiveButton = botonSeleccionado;
+
+        for (JButton btn : menuButtons) {
+            if (btn == botonSeleccionado) {
+                // ESTADO ACTIVO: VERDE
+                btn.setBackground(new Color(0, 153, 76)); 
+                btn.setForeground(Color.WHITE);
+            } else {
+                // ESTADO INACTIVO: AZUL
+                btn.setBackground(Estilos.AZUL_OSCURO);
+                btn.setForeground(Color.WHITE);
+            }
+        }
     }
 }

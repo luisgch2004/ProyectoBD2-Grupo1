@@ -209,7 +209,8 @@ public class PanelDonaciones extends JPanel {
             }
             
             // Guardar en la carpeta resources del proyecto
-            String ruta = System.getProperty("user.dir") + "/src/main/resources/reporte_donaciones.csv";
+            String ruta = System.getProperty("user.dir") + "/app/src/main/resources/reporte_donaciones.csv";
+            System.out.println("Exportando reporte a: " + ruta);
             
             PrintWriter pw = new PrintWriter(new FileWriter(ruta));
             pw.println("ID,Donante,Tipo,Fecha,Monto,Moneda,Estado");

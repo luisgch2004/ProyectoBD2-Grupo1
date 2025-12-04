@@ -4,7 +4,7 @@ import fisiclinica.dao.ConsultaDAO;
 import fisiclinica.dao.PacienteDAO;
 import fisiclinica.model.ConsultaMedica;
 import fisiclinica.model.Paciente;
-import fisiclinica.util.Estilos; // Importar estilos
+import fisiclinica.util.Estilos;
 import fisiclinica.util.UserSession;
 
 import javax.swing.*;
@@ -24,7 +24,6 @@ public class PanelConsultas extends JPanel {
         consultaDAO = new ConsultaDAO();
         pacienteDAO = new PacienteDAO();
         setLayout(new BorderLayout());
-        
         initUI();
     }
 
@@ -41,34 +40,34 @@ public class PanelConsultas extends JPanel {
         JButton btnBuscar = new JButton("Buscar Historial");
         Estilos.aplicarEstiloBoton(btnBuscar);
         
-        JButton btnVerDetalle = new JButton("Ver Detalle");
-        Estilos.aplicarEstiloBoton(btnVerDetalle);
+        JButton btnEditar = new JButton("Editar Estado");
+        Estilos.aplicarEstiloBoton(btnEditar);
+        
+        // --- BOTÓN NUEVO: CANCELAR ---
+        JButton btnCancelar = new JButton("Cancelar Consulta");
+        Estilos.aplicarEstiloBoton(btnCancelar);
+        btnCancelar.setBackground(new Color(220, 53, 69)); // Rojo alerta
         
         JButton btnAyuda = new JButton("?");
         Estilos.aplicarEstiloBoton(btnAyuda);
-        btnAyuda.setBackground(new Color(255, 193, 7)); // Color Amarillo/Ambar
+        btnAyuda.setBackground(new Color(255, 193, 7)); // Amarillo
         btnAyuda.setForeground(Color.BLACK);
         
-        JButton btnEditar = new JButton("Editar Diagnóstico");
-        Estilos.aplicarEstiloBoton(btnEditar);
-
-        JButton btnCancelar = new JButton("Cancelar Consulta");
-        Estilos.aplicarEstiloBoton(btnCancelar);
-        btnCancelar.setBackground(new Color(220, 53, 69));
-        
+        // Agregar componentes
         topPanel.add(lblDni);
         topPanel.add(txtDni);
         topPanel.add(btnBuscar);
         topPanel.add(Box.createHorizontalStrut(20));
-        topPanel.add(btnVerDetalle);
         topPanel.add(btnEditar);
+        topPanel.add(btnCancelar); // Agregado aquí
         topPanel.add(btnAyuda);
-        topPanel.add(btnCancelar);
         
         add(topPanel, BorderLayout.NORTH);
 
-        // --- TABLA ---
-        String[] columnas = {"ID", "Fecha", "Motivo", "Diagnóstico", "Médico", "Estado"};
+        // --- TABLA ACTUALIZADA ---
+        // 1. Agregamos las columnas al modelo
+        String[] columnas = {"ID", "DNI Paciente", "Paciente", "Fecha", "Motivo", "Diagnóstico", "Médico", "Estado"};
+        
         modelo = new DefaultTableModel(columnas, 0) {
             @Override
             public boolean isCellEditable(int row, int column) { return false; }
@@ -76,53 +75,40 @@ public class PanelConsultas extends JPanel {
         tabla = new JTable(modelo);
         tabla.setRowHeight(25);
         tabla.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        add(new JScrollPane(tabla), BorderLayout.CENTER);
+        
+        // 2. Ajustamos anchos para que se vea ordenado
+        tabla.getColumnModel().getColumn(0).setPreferredWidth(30);  // ID
+        tabla.getColumnModel().getColumn(1).setPreferredWidth(80);  // DNI
+        tabla.getColumnModel().getColumn(2).setPreferredWidth(150); // Paciente
+        tabla.getColumnModel().getColumn(3).setPreferredWidth(120); // Fecha
+        tabla.getColumnModel().getColumn(4).setPreferredWidth(100); // Motivo
+        
+        JScrollPane scrollPane = new JScrollPane(tabla);
+        scrollPane.getViewport().setBackground(Color.WHITE);
+        add(scrollPane, BorderLayout.CENTER);
 
         // --- EVENTOS ---
         btnBuscar.addActionListener(e -> buscarConsultas());
         
-        btnVerDetalle.addActionListener(e -> {
-            if(tabla.getSelectedRow() != -1) {
-                String diag = (String) tabla.getValueAt(tabla.getSelectedRow(), 3);
-                JOptionPane.showMessageDialog(this, "Diagnóstico completo:\n" + diag, "Detalle de Consulta", JOptionPane.INFORMATION_MESSAGE);
-            } else {
-                JOptionPane.showMessageDialog(this, "Seleccione una consulta para ver detalles.");
+        btnEditar.addActionListener(e -> editarConsulta());
+        
+        // Acción para cancelar
+        btnCancelar.addActionListener(e -> cancelarConsultaSeleccionada());
+        
+        btnAyuda.addActionListener(e -> JOptionPane.showMessageDialog(this, 
+            "PARA REGISTRAR NUEVA CONSULTA:\n1. Vaya a 'Pacientes'.\n2. Seleccione uno.\n3. Click en 'ATENDER CONSULTA'."));
+
+        // Evento para resetear al borrar el texto
+        txtDni.addKeyListener(new java.awt.event.KeyAdapter() {
+            public void keyReleased(java.awt.event.KeyEvent evt) {
+                if (txtDni.getText().trim().isEmpty()) {
+                    cargarTodasLasConsultas(); // Si está vacío, carga todo
+                }
             }
         });
         
-        btnAyuda.addActionListener(e -> JOptionPane.showMessageDialog(this, 
-            "PARA AGREGAR UNA CONSULTA:\n\n1. Vaya a la pestaña 'Pacientes'.\n2. Busque al paciente en la lista.\n3. Haga clic en el botón 'ATENDER CONSULTA'.\n\nDesde allí podrá registrar la atención médica.", "Ayuda", JOptionPane.INFORMATION_MESSAGE));
-            
-        btnEditar.addActionListener(e -> editarConsulta());
-
-        btnCancelar.addActionListener(e -> cancelarConsultaSeleccionada());
-        
-        // REQ 3: Cargar todas las consultas al inicio
+        // Carga inicial
         cargarTodasLasConsultas();
-    }
-
-    private void cancelarConsultaSeleccionada() {
-        int row = tabla.getSelectedRow();
-        if (row == -1) {
-            JOptionPane.showMessageDialog(this, "Seleccione una consulta.");
-            return;
-        }
-        
-        int idCons = (int) modelo.getValueAt(row, 0);
-        
-        int confirm = JOptionPane.showConfirmDialog(this, 
-            "¿Cancelar esta consulta?", 
-            "Confirmar", JOptionPane.YES_NO_OPTION);
-            
-        if (confirm == JOptionPane.YES_OPTION) {
-            try {
-                consultaDAO.eliminarConsulta(idCons, UserSession.getInstance().getUsuario().getIdUsuario());
-                if (txtDni.getText().isEmpty()) cargarTodasLasConsultas(); else buscarConsultas();
-                JOptionPane.showMessageDialog(this, "Consulta cancelada.");
-            } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());
-            }
-        }
     }
 
     private void cargarTodasLasConsultas() {
@@ -135,10 +121,44 @@ public class PanelConsultas extends JPanel {
         } catch (Exception e) { e.printStackTrace(); }
     }
 
+    private void buscarConsultas() {
+        String dni = txtDni.getText().trim();
+        if(dni.isEmpty()) {
+            cargarTodasLasConsultas();
+            return;
+        }
+
+        try {
+            Paciente p = pacienteDAO.buscarPorDni(dni);
+            if (p == null) {
+                JOptionPane.showMessageDialog(this, "Paciente no encontrado.");
+                return;
+            }
+
+            // Filtrar localmente o llamar a DB (Llamamos a DB para asegurar frescura)
+            List<ConsultaMedica> lista = consultaDAO.listarConsultasPaciente(p.getIdPaciente());
+            modelo.setRowCount(0);
+            for (ConsultaMedica c : lista) {
+                agregarFilaTabla(c);
+            }
+            // Actualizamos la caché local con lo que encontramos
+            listaConsultasCache = lista; 
+
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+    }
+
     private void agregarFilaTabla(ConsultaMedica c) {
         modelo.addRow(new Object[]{
-            c.getIdConsulta(), c.getFechaConsulta(), c.getMotivoConsulta(),
-            c.getDiagnostico(), c.getNombreMedico(), c.getEstado()
+            c.getIdConsulta(),
+            c.getDniPaciente(),      // <--- AHORA SÍ
+            c.getNombrePaciente(),   // <--- AHORA SÍ
+            c.getFechaConsulta(), 
+            c.getMotivoConsulta(),
+            c.getDiagnostico(), 
+            c.getNombreMedico(), 
+            c.getEstado()
         });
     }
 
@@ -150,7 +170,6 @@ public class PanelConsultas extends JPanel {
         }
         
         int idConsulta = (int) modelo.getValueAt(row, 0);
-        // Buscar en la lista actual
         ConsultaMedica consulta = listaConsultasCache.stream()
                 .filter(c -> c.getIdConsulta() == idConsulta)
                 .findFirst().orElse(null);
@@ -179,13 +198,7 @@ public class PanelConsultas extends JPanel {
                 
                 try {
                     consultaDAO.actualizarConsulta(consulta);
-                    
-                    // Refrescar vista
-                    if (txtDni.getText().isEmpty()) {
-                        cargarTodasLasConsultas();
-                    } else {
-                        buscarConsultas();
-                    }
+                    recargarVista();
                     JOptionPane.showMessageDialog(this, "Consulta actualizada.");
                 } catch(Exception ex) { 
                     JOptionPane.showMessageDialog(this, "Error al actualizar: " + ex.getMessage());
@@ -194,31 +207,44 @@ public class PanelConsultas extends JPanel {
         }
     }
 
-    private void buscarConsultas() {
-        String dni = txtDni.getText().trim();
-        if(dni.isEmpty()) {
-            cargarTodasLasConsultas();
+    // --- NUEVO MÉTODO PARA CANCELAR ---
+    private void cancelarConsultaSeleccionada() {
+        int row = tabla.getSelectedRow();
+        if (row == -1) {
+            JOptionPane.showMessageDialog(this, "Seleccione una consulta para cancelar.");
+            return;
+        }
+        
+        int idConsulta = (int) modelo.getValueAt(row, 0);
+        String estadoActual = (String) modelo.getValueAt(row, 5);
+        
+        if ("CANCELADA".equals(estadoActual)) {
+            JOptionPane.showMessageDialog(this, "Esta consulta ya está cancelada.");
             return;
         }
 
-        try {
-            Paciente p = pacienteDAO.buscarPorDni(dni);
-            if (p == null) {
-                JOptionPane.showMessageDialog(this, "Paciente no encontrado.");
-                return;
+        int confirm = JOptionPane.showConfirmDialog(this, 
+            "¿Está seguro de CANCELAR esta consulta?\nEsta acción quedará registrada.", 
+            "Confirmar Cancelación", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+            
+        if (confirm == JOptionPane.YES_OPTION) {
+            try {
+                // Llamamos al DAO (asegúrate de haber agregado 'eliminarConsulta' en ConsultaDAO)
+                consultaDAO.eliminarConsulta(idConsulta, UserSession.getInstance().getUsuario().getIdUsuario());
+                recargarVista();
+                JOptionPane.showMessageDialog(this, "Consulta cancelada exitosamente.");
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Error al cancelar: " + ex.getMessage());
             }
-
-            // Filtrar localmente o llamar a DB (Llamamos a DB para asegurar frescura)
-            List<ConsultaMedica> lista = consultaDAO.listarConsultasPaciente(p.getIdPaciente());
-            modelo.setRowCount(0);
-            for (ConsultaMedica c : lista) {
-                agregarFilaTabla(c);
-            }
-            // Actualizamos la caché local con lo que encontramos para que Editar funcione con estos datos
-            listaConsultasCache = lista; 
-
-        } catch (Exception ex) {
-            ex.printStackTrace();
+        }
+    }
+    
+    // Método auxiliar para no repetir código de recarga
+    private void recargarVista() {
+        if (txtDni.getText().trim().isEmpty()) {
+            cargarTodasLasConsultas();
+        } else {
+            buscarConsultas();
         }
     }
 }
